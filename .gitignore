@@ -554,3 +554,11 @@ nohup.out
 __pycache__/*
 */*/*/*/__pycache__/*
 >>>>>>> Stashed changes
+
+
+*/*/*/*/*/backup/*
+*/*/*/*/backup/*
+*/*/*/backup/*
+*/*/backup/*
+*/backup/*
+backup/*
