@@ -28,7 +28,7 @@
            <item row="1" column="0">
             <widget class="QTabWidget" name="tabWidget">
              <property name="currentIndex">
-              <number>2</number>
+              <number>0</number>
              </property>
              <widget class="QWidget" name="tab1">
               <attribute name="title">
@@ -45,8 +45,8 @@
                    <rect>
                     <x>0</x>
                     <y>0</y>
-                    <width>295</width>
-                    <height>564</height>
+                    <width>282</width>
+                    <height>581</height>
                    </rect>
                   </property>
                   <layout class="QGridLayout" name="gridLayout_2">
@@ -558,8 +558,8 @@
                    <rect>
                     <x>0</x>
                     <y>0</y>
-                    <width>309</width>
-                    <height>514</height>
+                    <width>282</width>
+                    <height>581</height>
                    </rect>
                   </property>
                   <layout class="QGridLayout" name="gridLayout_34">
@@ -937,21 +937,31 @@
               <item row="0" column="0">
                <widget class="QTreeWidget" name="treeWidget">
                 <property name="columnCount">
-                 <number>3</number>
+                 <number>5</number>
                 </property>
                 <column>
                  <property name="text">
-                  <string>Layer</string>
+                  <string>Scene Graph Path</string>
                  </property>
                 </column>
                 <column>
                  <property name="text">
-                  <string>Name</string>
+                  <string>Primitive Type</string>
                  </property>
                 </column>
                 <column>
                  <property name="text">
-                  <string>-</string>
+                  <string>Variants</string>
+                 </property>
+                </column>
+                <column>
+                 <property name="text">
+                  <string>Kind</string>
+                 </property>
+                </column>
+                <column>
+                 <property name="text">
+                  <string>Draw Mode</string>
                  </property>
                 </column>
                </widget>
@@ -984,7 +994,7 @@
      <x>0</x>
      <y>0</y>
      <width>1636</width>
-     <height>20</height>
+     <height>18</height>
     </rect>
    </property>
   </widget>
