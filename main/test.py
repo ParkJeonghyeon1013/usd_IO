@@ -6,5 +6,13 @@
 # modified data     : 2024.03.08
 # description       :
 
+"""
+drag drop test!!!!!!!!!!
+
+"""
+
+from PySide2 import QtCore, QtGui, QtWidgets
+
+
 if __name__ == '__main__':
     pass

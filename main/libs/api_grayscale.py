@@ -1,6 +1,6 @@
 import sys, os
 import re, importlib, subprocess
-import hou
+import hou as hou
 
 class GrayScaleCity:
     def __init__(self):
@@ -8,10 +8,12 @@ class GrayScaleCity:
 
 
 
+
     def create_hip(self):
         pass
 
     def create_mov(self):
+
         pass
 
     def create_jpg(self):
@@ -449,5 +451,6 @@ file_node = n_work_viewer2.createNode("file")
 file_node.parm("file").set("`@pdg_output.1`")
 
 
-
+##########################################################################################
+# turntable setting
 
