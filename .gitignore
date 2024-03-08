@@ -555,6 +555,8 @@ __pycache__/*
 */*/*/*/__pycache__/*
 >>>>>>> Stashed changes
 
+/home/rapa/git_workspace/usd_IO/s1_cityMap/build_data/*
+
 
 */*/*/*/*/backup/*
 */*/*/*/backup/*
