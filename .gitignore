@@ -535,7 +535,6 @@ __pycache__
 */.idea/*
 */*/.idea/*
 *.zip
-/resource/*
 */python/.idea/*
 */backupfile/*
 
