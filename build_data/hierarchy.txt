@@ -1,0 +1,9 @@
+[city name]
+	ㄴ [grid/osm]_[cityname].hip
+	ㄴ [image]
+		.png	
+	ㄴ [render]
+		.png seqence
+	ㄴ [mov]
+		.mov ffmpeg 
+
