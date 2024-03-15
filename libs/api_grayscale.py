@@ -1,52 +1,176 @@
+import pathlib
 import sys, os
 import re, importlib, subprocess
 import hou as hou
 
 class GrayScaleCity:
-    def __init__(self):
+    def __init__(self, cityname: str = 'testcity'):
         self.version = 0
-        pass
+        self.__cityname = cityname
 
-    # 노드 생성 시 위치 정렬을 위한 메서드
-    def align_node_pos(self, node_name, node_pos, add_x, add_y):
+    @property
+    def cityname(self):
+        return self.__cityname
+    @cityname.setter
+    def cityname(self, val):
+        assert isinstance(val, str)
+        self.__cityname = val
+
+
+    @staticmethod       # 노드 생성 시 위치 정렬을 위한 메서드
+    def align_node_pos(node_name, node_pos, add_x, add_y):
         node_name.setPosition((node_pos[0] + add_x, node_pos[1] + add_y))
 
     @staticmethod
     def set_hipfile():
+        print("\ngrayscale set hipfile")
         # init HOUDINI
         hou.hipFile.clear(suppress_save_prompt=True)
 
-
         # set frame range - 5s [1001-1121]
 
-        start_frame = 1001
-        end_frame = 1120
-        hou.setFps(int(24))
+        start_frame: int = 1001
+        end_frame: int = 1120
+        fps: int = 24
+        hou.setFps(fps)
         frame_set = f"`{start_frame -1}/$FPS` `{end_frame}/$FPS`"
         hou.hscript(frame_set)
-        hou.playbar.setPlaybackRange(int(start_frame), int(end_frame))
+        hou.playbar.setFrameRange(start_frame, end_frame)
+        hou.playbar.setPlaybackRange(start_frame, end_frame)
+        hou.setFrame(start_frame)
+        # hou.playbar.setTimeRange(int(start_frame), int(end_frame))
+
+################################################################dd##########################
+    def render_seq(self,
+                   dir_path: str = "D:/git_workspace/usd_IO/build_data/grayscale_testcity"):
+        # set Node variable
+        obj = hou.node("/obj")
+
+        n_street_grid = hou.node('/obj/STREET_GRID')
+        n_work_viewer1 = hou.node('/obj/WORK_Building_VIEWER1')
+        n_work_viewer2 = hou.node('/obj/WORK_Building_VIEWER2')
+        n_render_viewer1 = hou.node('/obj/RENDER_Building_VIEWER1')
+        n_render_viewer2 = hou.node('/obj/RENDER_Building_VIEWER2')
+        n_topnet = hou.node('/obj/topnet1')
+
+        n1_file_node = n_render_viewer1.createNode("file")
+        n1_file_node.parm("file").set("`@pdg_input`")
+
+        n2_file_node = n_render_viewer2.createNode("file")
+        n2_file_node.parm("file").set("`@pdg_input.1`")
+
+        # png_path = os.path.join(dir_path, f'grayscale.{self.version}')
+        png_path = f"{dir_path}/grayscale.{self.version}"
+        print(f"\npng 경로 {png_path}")
+
+        # Render displayFlag set
+        n_street_grid.setDisplayFlag(False)
+        n_work_viewer1.setDisplayFlag(False)
+        n_work_viewer2.setDisplayFlag(False)
+        n_render_viewer1.setDisplayFlag(True)
+        n_render_viewer2.setDisplayFlag(True)
+
+        print("\n렌더 세팅 시작", dir_path)
+
+        # camera/ light 세팅
+        # TODO: :::::::::::::::::::: camera 위치 세팅
+        n_cam = obj.createNode("cam")
+        n_cam.parm("tx").setExpression('ch("../topnet1/hdaprocessor1/hdap_sx1")*3')
+        n_cam.parm("ty").setExpression('ch("../topnet1/hdaprocessor1/hdap_sx1")*2.5')
+        n_cam.parm("rx").set(-30)
+        n_cam.parm("ry").set(90)
 
 
+        n_light1 = obj.createNode("hlight::2.0", "sunlight")
+        n_light1.parm("light_type").set(8)
+        n_light1.parm("vm_envangle").set(2)
+        n_light1.parm("vm_samplingquality").set(0.5)
 
-    def create_mov(self):
+        n_light2 = obj.createNode("envlight", "skylight")
+        n_light2.parm("skymap_enable").set(1)
+        n_light2.parm("light_intensity").set(1.3)
+        n_light2.parm("vm_samplingquality").set(0.5)
+        n_light2.parm("skymap_resolution").set(16)
+        self.align_node_pos(n_cam, n_work_viewer2.position(), 0, -1)
+        self.align_node_pos(n_light1, n_cam.position(), 0, -1)
+        self.align_node_pos(n_light2, n_light1.position(), 3, 0)
 
-        pass
+        # obj > topnet > mantra renderer 추가
+        n_part_idx = hou.node("/obj/topnet1/partitionbyindex1")
+        n_mantra = n_topnet.createNode("ropmantra")
+        n_mantra.setInput(0, n_part_idx)
+        n_mantra.parm("pdg_cachemode").set(2)
+        n_mantra.parm("override_camerares").set(1)
+        n_mantra.parm("vm_picture").set("$HIP/render/$HIPNAME.$OS.`@wedgenum`.png")
+        self.align_node_pos(n_mantra, n_part_idx.position(), 0, -2)
+
+        # obj > topnet > overlaytext
+        n_overlaytext = n_topnet.createNode("ropcomposite")
+        n_overlaytext.setInput(0, n_mantra)
+        n_overlaytext.parm("copoutput").set("$HIP/render/$HIPNAME.$OS.`@wedgenum`.png")
+        n_overlaytext.setDisplayFlag(True)
+        self.align_node_pos(n_overlaytext, n_mantra.position(), 0, -2)
+
+        n_overlaytext_in = hou.node(n_overlaytext.path() + '/c')
+        n_pdg_result = hou.node('/obj/topnet1/ropcomposite1/c/pdg_result')
+
+        n_font = n_overlaytext_in.createNode("font")
+        n_font.parm("text").set(
+            "Map: `@file_wedge`\nCity Core: `@center_wedge.0`, `@center_wedge.2`\nVariation Seed: `@seed_wedge`")
+        n_font.parm("textsize").set(18)
+        n_font.setInput(0, n_pdg_result)
+        self.align_node_pos(n_font, n_pdg_result.position(), -2, -2)
+
+        n_dropshadow = n_overlaytext_in.createNode("dropshadow")
+        n_dropshadow.setInput(0, n_font)
+        self.align_node_pos(n_dropshadow, n_font.position(), 0, -2)
+
+        n_over = n_overlaytext_in.createNode("over")
+        n_over.setInput(0, n_dropshadow)
+        n_over.setInput(1, n_pdg_result)
+        self.align_node_pos(n_over, n_dropshadow.position(), 2, -2)
+
+        # obj > topnet > waitforall
+        n_wait = n_topnet.createNode("waitforall")
+        n_wait.setInput(0, n_overlaytext)
+        n_wait.setRenderFlag(True)
+        self.align_node_pos(n_wait, n_overlaytext.position(), 0, -2)
+
+        n_magick = n_topnet.createNode("imagemagick")
+        n_magick.setInput(0, n_wait)
+        self.align_node_pos(n_magick, n_wait.position(), 0, -2)
 
 
+        # todo ::::::::::: file save > topnet cook > render 순으로 진행
+        # cook 해주고 render 해주기
+        print("\nrender 전 저장 후 render 시작")
+        self.save_hip(dir_path,'render')
+        n_magick.setDisplayFlag(True)
+        n_topnet.dirtyAllTasks(True)
+        print("\n렌더 시작!!")
+        # n_topnet.cookAllOutputWorkItems(True)
 
-    def create_jpg(self):
-        pass
 
+    def save_hip(self,
+                 dir_path: str = "D:/git_workspace/usd_IO/build_data/grayscale_testcity",
+                 task: str = "render"):
 
+        '''
 
-    def save_hip(self, dir_path):
-        hip_path = os.path.join(dir_path, f'grayscale.{self.version}.hip')
+        :param dir_path:
+        :param task: overview / render 두 종류 task 구분해서 저장하기 위함.
+        :return:
+        '''
+        hip_path = os.path.join(dir_path, f'grayscale_{self.cityname}_{task}.hip')
+        print(f"\n{hip_path}에 저장합니다!")
         # hip save
         hou.hipFile.save(hip_path)
         self.version += 1
 
 
-    def create_city(self):
+    def create_city(self,
+                    img_path: str = "D:/git_workspace/usd_IO/hip_practice/script_grayscale/tex/citygrid.jpg",
+                    saved_path: str = "D:/git_workspace/usd_IO/build_data/grayscale_testcity"):
 
         # Create Main Node
         obj = hou.node("/obj")
@@ -64,6 +188,8 @@ class GrayScaleCity:
         n_render_viewer1.setPosition([4, -1])
         n_render_viewer2.setPosition([4, -2])
 
+        print("\n obj 채널 기본 세팅 완료!")
+
 ######################################################################################################################
         # n_work_viewer1 노드 안에 file 노드 생성 후 값 세팅
         file_node = n_work_viewer1.createNode("file")
@@ -76,13 +202,15 @@ class GrayScaleCity:
         n_trace = n_subnet.createNode("trace")
 
         n_trace.parm("rx").set(-90)
-        n_trace.parm("ry").setExpression('($F/$FEND)*2000')
+        n_trace.parm("ry").setExpression("$F*6")
         n_trace.parm("sx").set(100)
         trace_sx = n_trace.parm("sx")
         n_trace.parm("sy").set(trace_sx)
 
         # n_trace.parm("file").set("/home/rapa/git_workspace/usd_IO/hip_practice/script_grayscale/tex/citygrid.jpg") # grid 이미지 경로 설정
-        n_trace.parm("file").set("D:/git_workspace/usd_IO/hip_practice/script_grayscale/tex/citygrid.jpg") # grid 이미지 경로 설정
+        print(img_path, type(img_path))
+        n_trace.parm("file").set(img_path) # grid 이미지 경로 설정
+        print("\n이미지 경로 잘 들어감!")
         n_trace.parm("overridesize").set(1)     # gird size 랑 그냥 relative로 엮어줄까?
         n_trace.parm("imagesize1").set(500)
         n_trace.parm("imagesize2").set(500)
@@ -140,7 +268,7 @@ class GrayScaleCity:
         self.align_node_pos(n_output, n_attribute_transfer.position(), 0, -1)
 
 
-
+        print("\n hda 제작을 위한 세팅 완료 ")
         ##########################################################################################################
 
         # subnet을 통해서 HDA를 만들 때 relative로 parmeter 연결해주기 위한 작업!
@@ -183,7 +311,10 @@ class GrayScaleCity:
         # houdini asset 만들기
         hda_grid = hou.node('/obj/STREET_GRID/streetgrid_maker')
         # node = hda_grid.createDigitalAsset(name='Street_maker', hda_file_name='/home/rapa/git_workspace/usd_IO/hip_practice/script_grayscale/hda/streetgrid_maker.hda')
-        node = hda_grid.createDigitalAsset(name='Street_maker', hda_file_name='D:/git_workspace/usd_IO/output/streetgrid_maker.hdanc')
+        hda_save_path = f"{saved_path}/hda/streetgrid_maker.hda"
+        print("\nhda 저장 경로 >> ", hda_save_path)
+        node = hda_grid.createDigitalAsset(name='Street_maker', hda_file_name=hda_save_path)
+        print("\n저장성공!")
 
 
         # null 생성해서 연결
@@ -191,12 +322,14 @@ class GrayScaleCity:
         n_null = n_street_grid.createNode("null", "CITYBLOCKS_OUT")
         n_null.setInput(0, n_subnet)
         self.align_node_pos(n_null, n_subnet.position(), 0, -1)
+        print('\nHDA 제작 완료')
 
 ##########################################################################################################
         # obj > topnet > localscheduler
         n_localscheduler = n_topnet.node('localscheduler')
         n_localscheduler.parm('maxprocsmenu').set(-1)
 
+        print("\ntopnet 작업을 통해 wedge 및 렌더 세팅")
 
         # topnet 작업 > wedge 노드 세팅
         # 몇 가지의 variation 줄지 설정
@@ -243,7 +376,9 @@ class GrayScaleCity:
         n_hdaprocessor.setInput(0, n_wedge)
         n_hdaprocessor.setName("make_citygrid")
         # n_hdaprocessor.parm("inputfile").set("$HIP/hda/streetgrid_maker.hdanc")
-        n_hdaprocessor.parm("inputfile").set("D:/git_workspace/usd_IO/output/streetgrid_maker.hdanc")
+        n_hdaprocessor.parm("inputfile").set(hda_save_path)
+        # n_hdaprocessor.parm("hdap_sx2").setExpression('ch("hdap_sx1")')
+
         self.align_node_pos(n_hdaprocessor, n_wedge.position(), 0, -1)
 
         # NEEEEEEEEDDDDDDD to fix
@@ -266,6 +401,7 @@ class GrayScaleCity:
         # image input은 연결되어있음! 그리드 사이즈는 고정되어있어서 image 사이즈가 커지면 grid (= 도시 사이즈) 도 함께 커질 수 있게 만들어주기
 
 
+        print("\ntopnet 에서 height / core 변수값 세팅 시작!!")
 
         # obj > topnet > geometryimport
         n_geometryimport = n_topnet.createNode("geometryimport", "cityblocks")
@@ -320,6 +456,7 @@ class GrayScaleCity:
 #########################################################################################################################
         # obj > topnet > ropgeometry = create_building
         # ropgeometry 노드의 경우 Lock 이 걸려있어서 그런지 세부 경로를 타고 가야 했음.
+        print("\nbuilding 짓기 시작!!")
         n_rop_in = hou.node(n_rop_geo.path()+'/s/s')
         n_out = hou.node('/obj/topnet1/create_buildings/s/s/output1')
         n_out.setInput(0, None)
@@ -406,6 +543,7 @@ class GrayScaleCity:
 
 ##########################################################################################################################
         # obj > topnet > partitionbyatrribute
+        print("\nwedge 및 street 만들기")
         n_part_att = n_topnet.createNode("partitionbyattribute")
         n_part_att.parm("attributes").set(1)
         n_part_att.parm("name1").set("wedgenum")
@@ -504,104 +642,35 @@ class GrayScaleCity:
         file_node.parm("file").set("`@pdg_output.1`")
 
 #####################################################################
+        # null 노드를 통해 turntable 만들어주기
+        # 돌아가는 속도는 f 단위로 곱해지는 값을 올려주면 됨.
+        print("\n턴테이블 위한 컨트롤러 null 노드 제작")
+        n_ctrl = obj.createNode("null", "_ctrl")
+        turn_speed = 6
+        n_ctrl.parm("ry").setExpression(f"$F * {turn_speed}")
+        n_ctrl_ry = n_ctrl.parm("ry")
+        n_render_viewer1.parm("ry").setFromParm(n_ctrl_ry)
+        n_render_viewer2.parm("ry").setFromParm(n_ctrl_ry)
+        n_ctrl.setDisplayFlag(False)
+        self.align_node_pos(n_ctrl, n_work_viewer1.position(), -4, 0)
+
+        #####################################################################
         # display mode on 해주기
+        print("\nTopnet의 마지막 n_partition_idx 노드 output켬")
+        n_partition_idx.setDisplayFlag(True)
         n_topnet.cookAllOutputWorkItems(True)
 
+
+        print("cook 해주고 work 켜주면 사용자가 건물 확인할 수 있음!")
+        print("근데 지금은 hda 뭔가 이상하게 생성되어서 가장 큰 문제는 grid 이미지와 연결이 안되는 것!! 일단 절대값으로 넣고 진행")
         n_work_viewer1.setDisplayFlag(True)
         n_work_viewer2.setDisplayFlag(True)
         n_render_viewer1.setDisplayFlag(False)
         n_render_viewer2.setDisplayFlag(False)
 
+        self.save_hip(saved_path, 'overview')
 
 
-################################################################dd##########################
-# turntable setting
-    def set_render(self, dir_path):
-        # set Node variable
-        obj = hou.node("/obj")
-
-        n_street_grid = hou.node('/obj/STREET_GRID')
-        n_work_viewer1 = hou.node('/obj/WORK_Building_VIEWER1')
-        n_work_viewer2 = hou.node('/obj/WORK_Building_VIEWER2')
-        n_render_viewer1 = hou.node('/obj/RENDER_Building_VIEWER1')
-        n_render_viewer2 = hou.node('/obj/RENDER_Building_VIEWER2')
-        n_topnet = hou.node('/obj/topnet1')
-
-        n1_file_node = n_render_viewer1.createNode("file")
-        n1_file_node.parm("file").set("`@pdg_input`")
-
-        n2_file_node = n_render_viewer2.createNode("file")
-        n2_file_node.parm("file").set("`@pdg_input.1`")
-
-        jpg_path = os.path.join(dir_path, f'grayscale.{self.version}')
-
-        # Render displayFlag set
-        n_work_viewer1.setDisplayFlag(False)
-        n_work_viewer2.setDisplayFlag(False)
-        n_render_viewer1.setDisplayFlag(True)
-        n_render_viewer2.setDisplayFlag(True)
-
-        # camera/ light 세팅
-        # TODO: :::::::::::::::::::: camera 위치 세팅
-        n_cam = obj.createNode("cam")
-        n_light1 = obj.createNode("hlight::2.0", "sunlight")
-        n_light1.parm("light_type").set(8)
-        n_light1.parm("vm_envangle").set(2)
-
-        n_light2 = obj.createNode("envlight", "skylight")
-        n_light2.parm("skymap_enable").set(1)
-        n_light2.parm("light_intensity").set(1.3)
-        self.align_node_pos(n_cam, n_work_viewer2.position(), 0, -1)
-        self.align_node_pos(n_light1, n_cam.position(), 0, -1)
-        self.align_node_pos(n_light2, n_light1.position(), 3, -1)
-
-        # obj > topnet > mantra renderer 추가
-        n_part_idx = hou.node("/obj/topnet1/partitionbyindex1")
-        n_mantra = n_topnet.createNode("ropmantra")
-        n_mantra.setInput(0, n_part_idx)
-        n_mantra.parm("pdg_cachemode").set(2)
-        n_mantra.parm("override_camerares").set(1)
-        n_mantra.parm("vm_picture").set("$HIP/render/$HIPNAME.$OS.`@wedgenum`.png")
-        self.align_node_pos(n_mantra, n_part_idx.position(), 0, -2)
-
-        # obj > topnet > overlaytext
-        n_overlaytext = n_topnet.createNode("ropcomposite")
-        n_overlaytext.setInput(0, n_mantra)
-        n_overlaytext.parm("copoutput").set("$HIP/render/$HIPNAME.$OS.`@wedgenum`.png")
-        self.align_node_pos(n_overlaytext, n_mantra.position(), 0, -2)
-
-        n_overlaytext_in = hou.node(n_overlaytext.path()+'/c')
-        n_pdg_result = hou.node('/obj/topnet1/ropcomposite1/c/pdg_result')
-
-        n_font = n_overlaytext_in.createNode("font")
-        n_font.parm("text").set("Map: `@file_wedge`\nCity Core: `@center_wedge.0`, `@center_wedge.2`\nVariation Seed: `@seed_wedge`")
-        n_font.parm("textsize").set(30)
-        n_font.setInput(0, n_pdg_result)
-        self.align_node_pos(n_font, n_pdg_result.position(), -2, -2)
-
-        n_dropshadow = n_overlaytext_in.createNode("dropshadow")
-        n_dropshadow.setInput(0, n_font)
-        self.align_node_pos(n_dropshadow, n_font.position(), 0, -2)
-
-        n_over = n_overlaytext_in.createNode("over")
-        n_over.setInput(0, n_dropshadow)
-        n_over.setInput(1, n_pdg_result)
-        self.align_node_pos(n_over, n_dropshadow.position(), 2, -2)
-
-        # obj > topnet > waitforall
-        # n_wait = n_topnet.createNode("waitforall")
-        # n_wait.setInput(0, n_overlaytext)
-        # self.align_node_pos(n_wait, n_overlaytext.position(), 0, -2)
-        #
-        # n_magick = n_topnet.createNode("imagemagick")
-        # n_magick.setInput(0, n_wait)
-        # self.align_node_pos()
-        #
-
-        # todo ::::::::::: file save > topnet cook > render 순으로 진행
-        #cook 해주고 render 해주기
-        n_topnet.dirtyAllTasks(True)
-        n_topnet.cookAllOutputWorkItems(True)
 
 
 
@@ -611,6 +680,9 @@ class GrayScaleCity:
 
 
 if __name__ == '__main__':
-    pass
+    city = GrayScaleCity('seoul')
+    city.set_hipfile()
+    city.create_city()
+    city.render_seq()
 
 
