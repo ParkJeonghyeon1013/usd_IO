@@ -264,7 +264,7 @@ class GrayScaleCity:
 
         n_output = n_subnet.createNode("output")
         n_output.setInput(0, n_attribute_transfer)
-        # n_output.setDisplayFlag(True)
+        n_output.setDisplayFlag(True)
         self.align_node_pos(n_output, n_attribute_transfer.position(), 0, -1)
 
 
@@ -273,56 +273,75 @@ class GrayScaleCity:
 
         # subnet을 통해서 HDA를 만들 때 relative로 parmeter 연결해주기 위한 작업!
         # ptg 그룹이 있다. 여기에 넣어주기 위한 parm templete 제작 > ptg 그룹에 넣어주고 > subnet에 set해주면 됨
-        ptg = n_subnet.parmTemplateGroup()
+        # 오마이갓. subent에 set을 해주는 방식이 아니라 hda를 우선 제작한 후 해당 hda의 parmgroup에 넣어주고, definition, option 설정을 해주면 hda processor에서도 보인다!!!!!!!
 
-        # 이 방식으로 hide 시켜줄 수 있음.
-        # for i in ptg.parmTemplates():
-        #     ptg.hide(i, True)
-        # n_subnet.setParmTemplateGroup(ptg)
-
-        template1 = hou.FloatParmTemplate(name='sx', label='Scale', num_components=2)
-        template2 = hou.FloatParmTemplate(name='t', label='Sphere_Center', num_components=3)
-        template3 = hou.FloatParmTemplate(name='blendwidth', label='Blend_Width', num_components=1)
-        template4 = hou.StringParmTemplate(name='file', label='Image_input', num_components=1)
-        # template5 = hou.StringParmTemplate(name='file', label='Image_input',  num_components=3, string_type=hou.stringParmType.FileReference,file_type=hou.fileType.Image)
+        n_subnet = hou.node('/obj/STREET_GRID/streetgrid_maker')
+        hda_save_path = f"{saved_path}/hda/streetgrid_maker.hda"
+        hda = n_subnet.createDigitalAsset(name='Street_maker', description='Street_maker',
+                                                 hda_file_name=hda_save_path,
+                                                 create_backup=False)
+        definition = hda.type().definition()
+        ptg = hda.parmTemplateGroup()
 
 
-        # ptg.parmTemplates()
-        ptg.addParmTemplate(template1)
-        ptg.addParmTemplate(template2)
-        ptg.addParmTemplate(template3)
-        ptg.addParmTemplate(template4)
-        # ptg.addParmTemplate(template5)
-
-        n_subnet.setParmTemplateGroup(ptg)
 
 
-        # TODO ::::::::::: parm과 relative로 연결하기
-        # n_subnet.parm("file").setExpression('`chs("trace1/file")`')
+
+        # TODO ::::::::::: parm과 relative로 연결하기 // SETFROMPARM 사용해주면 됨.
+        # target_parm = hou.node('/obj/street_grid/subnet1/trace1').parm("file")
+        # n_subnet.parm("file").setFromParm(target_parm)
+        # >> > p = hou.parm('/obj/topnet1/hdaprocessor1/hdap_img_input')
+        # >> > hou.parm('/obj/geo1/trace1/file').setFromParm(hou.parm('/obj/topnet1/hdaprocessor1/hdap_img_input'))
+        # >> > hou.parm('/obj/geo1/trace1/file').setFromParm(p)
+        # >> > hou.parm('/obj/geo1/trace1/file').setFromParm(p)
+        # >> > hou.parm('/obj/geo1/trace1/file').setFromParm(p)
+        hou.parmTuple('/obj/geo1/t')
         '''
         // image input (file) : subnet > trace > image input
         // scale X (sx) : subnet > trace > scale X
-        // sphere center : subnet > sphere > center
+        // sphere center (t) : subnet > sphere > center
         // blend width : subnet > attribtransfer > blend width 
         '''
 
 
-        # obj > STREET_GRID
-        # houdini asset 만들기
-        hda_grid = hou.node('/obj/STREET_GRID/streetgrid_maker')
-        # node = hda_grid.createDigitalAsset(name='Street_maker', hda_file_name='/home/rapa/git_workspace/usd_IO/hip_practice/script_grayscale/hda/streetgrid_maker.hda')
-        hda_save_path = f"{saved_path}/hda/streetgrid_maker.hda"
-        print("\nhda 저장 경로 >> ", hda_save_path)
-        node = hda_grid.createDigitalAsset(name='Street_maker', hda_file_name=hda_save_path)
-        print("\n저장성공!")
+        template1 = hou.FloatParmTemplate(name='sx', label='Scale', num_components=2,
+                                          default_expression=('chs("trace1/sx")'),
+                                          default_expression_language=(hou.scriptLanguage.Hscript,))
+        template2 = hou.FloatParmTemplate(name='t', label='Sphere_Center', num_components=3,
+                                          default_expression=('chs("sphere1/t")'),
+                                          default_expression_language=(hou.scriptLanguage.Hscript,))
+        template3 = hou.FloatParmTemplate(name='blendwidth', label='Blend_Width', num_components=1,
+                                          default_expression=('chs("attribtransfer1/blendwidth")'),
+                                          default_expression_language=(hou.scriptLanguage.Hscript,))
 
+        template4 = hou.StringParmTemplate(name='file', label='Image_input', num_components=1,
+                                           file_type=hou.fileType.Image,
+                                           default_value=('put_image_path',),
+                                           string_type=hou.stringParmType.FileReference,
+                                           default_expression=('chs("trace1/file")',),
+                                           default_expression_language=(hou.scriptLanguage.Hscript,))
+        ptg.append(template1)
+        ptg.append(template2)
+        ptg.append(template3)
+        ptg.append(template4)
 
-        # null 생성해서 연결
-        n_subnet = hou.node('/obj/STREET_GRID/streetgrid_maker')
+        # n_subnet.setParmTemplateGroup(ptg)
+        definition.setParmTemplateGroup(ptg)
+
+        options = definition.options()
+        options.saveSpareParms()
+        options.setSaveSpareParms()
+        options.setSaveInitialParmsAndContents(True)
+        definition.setOptions(options)
+        hda_fpath = definition.libraryFilePath()
+        definition.save(hda_fpath, template_node=hda, options=options, create_backup=False)
+        definition.updateFromeNode(hda)
+
         n_null = n_street_grid.createNode("null", "CITYBLOCKS_OUT")
         n_null.setInput(0, n_subnet)
         self.align_node_pos(n_null, n_subnet.position(), 0, -1)
         print('\nHDA 제작 완료')
+
 
 ##########################################################################################################
         # obj > topnet > localscheduler
