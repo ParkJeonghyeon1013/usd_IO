@@ -41,7 +41,7 @@ class CityBuilder(QtWidgets.QMainWindow, Ui_MainWindow):
         self.__grid_path = ''
         self.__osm_path = ''
         self.__save_path = 'D:/git_workspace/usd_IO/build_data'
-        self.__form = {'hip': '', 'jpg': '', 'mov': '', 'usd': ''}
+        self.__form = {'hip': '', 'tex': '', 'mov': '', 'usd': ''}
         self.__save_path_lst = list()
         self.__task_type = ''
         self.__cityname = ''
@@ -189,7 +189,7 @@ class CityBuilder(QtWidgets.QMainWindow, Ui_MainWindow):
             self.build_grayscale.save_hip(self.__form['hip'], "overview")
 
             self.textEdit__log.setText("Rendering 시작합니다!")
-            self.build_grayscale.render_seq()
+            self.build_grayscale.render_seq(self.__form['hip'])
 
 
 
