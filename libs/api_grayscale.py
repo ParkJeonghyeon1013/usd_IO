@@ -202,7 +202,6 @@ class GrayScaleCity:
         n_trace = n_subnet.createNode("trace")
 
         n_trace.parm("rx").set(-90)
-        n_trace.parm("ry").setExpression("$F*6")
         n_trace.parm("sx").set(100)
         trace_sx = n_trace.parm("sx")
         n_trace.parm("sy").set(trace_sx)
@@ -288,13 +287,15 @@ class GrayScaleCity:
 
 
         # TODO ::::::::::: parm과 relative로 연결하기 // SETFROMPARM 사용해주면 됨.
+        #
         # target_parm = hou.node('/obj/street_grid/subnet1/trace1').parm("file")
         # n_subnet.parm("file").setFromParm(target_parm)
         # >> > p = hou.parm('/obj/topnet1/hdaprocessor1/hdap_img_input')
-        # >> > hou.parm('/obj/geo1/trace1/file').setFromParm(hou.parm('/obj/topnet1/hdaprocessor1/hdap_img_input'))
+        # >> > hou.parm('/obj/geo1/trace1/file').setFromParm(hou.parm('/obj/topnet1/hdaprocessor1/hdap_Image_input'))
         # >> > hou.parm('/obj/geo1/trace1/file').setFromParm(p)
         # >> > hou.parm('/obj/geo1/trace1/file').setFromParm(p)
         # >> > hou.parm('/obj/geo1/trace1/file').setFromParm(p)
+
         hou.parmTuple('/obj/geo1/t')
         '''
         // image input (file) : subnet > trace > image input
@@ -304,22 +305,25 @@ class GrayScaleCity:
         '''
 
 
-        template1 = hou.FloatParmTemplate(name='sx', label='Scale', num_components=2,
-                                          default_expression=('chs("trace1/sx")'),
-                                          default_expression_language=(hou.scriptLanguage.Hscript,))
-        template2 = hou.FloatParmTemplate(name='t', label='Sphere_Center', num_components=3,
-                                          default_expression=('chs("sphere1/t")'),
-                                          default_expression_language=(hou.scriptLanguage.Hscript,))
-        template3 = hou.FloatParmTemplate(name='blendwidth', label='Blend_Width', num_components=1,
-                                          default_expression=('chs("attribtransfer1/blendwidth")'),
-                                          default_expression_language=(hou.scriptLanguage.Hscript,))
+        template1 = hou.FloatParmTemplate(name='s', label='Scale', num_components=2,)
+                                          # default_expression=('chs("trace1/sx")'),
+                                          # default_expression_language=(hou.scriptLanguage.Hscript,))
+
+        template2 = hou.FloatParmTemplate(name='t', label='Sphere_Center', num_components=3,)
+                                          # default_expression=('chs("sphere1/t")'),
+                                          # default_expression_language=(hou.scriptLanguage.Hscript,))
+
+        template3 = hou.FloatParmTemplate(name='blendwidth', label='Blend_Width', num_components=1,)
+                                          # default_expression=('chs("attribtransfer1/blendwidth")'),
+                                          # default_expression_language=(hou.scriptLanguage.Hscript,))
 
         template4 = hou.StringParmTemplate(name='file', label='Image_input', num_components=1,
                                            file_type=hou.fileType.Image,
                                            default_value=('put_image_path',),
-                                           string_type=hou.stringParmType.FileReference,
-                                           default_expression=('chs("trace1/file")',),
-                                           default_expression_language=(hou.scriptLanguage.Hscript,))
+                                           string_type=hou.stringParmType.FileReference,)
+                                           # default_expression=('chs("trace1/file")',),
+                                           # default_expression_language=(hou.scriptLanguage.Hscript,))
+        # template5 = hou.
         ptg.append(template1)
         ptg.append(template2)
         ptg.append(template3)
@@ -395,32 +399,25 @@ class GrayScaleCity:
         n_hdaprocessor = n_topnet.createNode("hdaprocessor")
         n_hdaprocessor.setInput(0, n_wedge)
         n_hdaprocessor.setName("make_citygrid")
-        n_hdaprocessor.parm("updateHDAParms").set(1)
-        # n_hdaprocessor.parm("inputfile").set("$HIP/hda/streetgrid_maker.hdanc")
         n_hdaprocessor.parm("inputfile").set(hda_save_path)
-        # n_hdaprocessor.parm("hdap_sx2").setExpression('ch("hdap_sx1")')
-
-        self.align_node_pos(n_hdaprocessor, n_wedge.position(), 0, -1)
-
-        # NEEEEEEEEDDDDDDD to fix
-        # PPPPPPPPPPPPPPPPPRRRRRRRRRRRRRRRRRRRRRRROOOOOOOOOOOOOOOOOOOOOOO blem~~~~~~~~~~~~~~~~~~~~~~~
-        # n_hdaprocessor.parm("operatortype").set("Sop/USER::streetgrid_maker::1.0")
-        # n_hdaprocessor.parm("hdatype").set(1)
-        # n_hdaprocessor.parm("outputfile1").set("$HIP/geo/$OS.`@pdg_name`.`@wedgenum`.0.bgeo.sc")
-        # n_hdaprocessor.parm("outputtag1").set("file/geo")
-        # n_hdaprocessor.parm("updateHDAParms").set(1)
-
-        # delete upper things. cause callback method fill everything
-        # todo::::::::::::::: 근데 윈도우에서 해보니까 안됨...
-        # n_hdaprocessor.hdaModule().hdaFileChanged({'node':n_hdaprocessor})
-        # n_hdaprocessor.parm("hdap_tx").setExpression("@center_wedge.0")
-        # n_hdaprocessor.parm("hdap_ty").setExpression("@center_wedge.1")
-        # n_hdaprocessor.parm("hdap_tz").setExpression("@center_wedge.2")
-
+        # hda parm update callback method
+        print("call back method")
+        n_hdaprocessor.hdaModule().hdaFileChanged({'node':n_hdaprocessor})
 
         # TODO: PUT relative parms to HDA parameters
-        # image input은 연결되어있음! 그리드 사이즈는 고정되어있어서 image 사이즈가 커지면 grid (= 도시 사이즈) 도 함께 커질 수 있게 만들어주기
+        # NEEEEEEEEDDDDDDD to fix
+        # n_hdaprocessor.parm("operatortype").set("Sop/USER::streetgrid_maker::1.0")
+        n_hdaprocessor.parm("outputfile1").set("$HIP/geo/$OS.`@pdg_name`.`@wedgenum`.0.bgeo.sc")
+        n_hdaprocessor.parm("outputtag1").set("file/geo")
 
+        n_hdaprocessor.parm("hdap_sy").setExpression('ch("hdap_sx")')
+        # n_hdaprocessor.parm("hdap_blendwidth").setExpression('ch("hdap_sx")')
+        n_hdaprocessor.parm("hdap_tx").setExpression("@center_wedge.0")
+        n_hdaprocessor.parm("hdap_ty").setExpression("@center_wedge.1")
+        n_hdaprocessor.parm("hdap_tz").setExpression("@center_wedge.2")
+
+        # image input은 연결되어있음! 그리드 사이즈는 고정되어있어서 image 사이즈가 커지면 grid (= 도시 사이즈) 도 함께 커질 수 있게 만들어주기
+        self.align_node_pos(n_hdaprocessor, n_wedge.position(), 0, -1)
 
         print("\ntopnet 에서 height / core 변수값 세팅 시작!!")
 
@@ -668,7 +665,7 @@ class GrayScaleCity:
         print("\n턴테이블 위한 컨트롤러 null 노드 제작")
         n_ctrl = obj.createNode("null", "_ctrl")
         turn_speed = 6
-        n_ctrl.parm("ry").setExpression(f"$F * {turn_speed}")
+        n_ctrl.parm("ry").setExpression(f"($F-1000) * {turn_speed}")
         n_ctrl_ry = n_ctrl.parm("ry")
         n_render_viewer1.parm("ry").setFromParm(n_ctrl_ry)
         n_render_viewer2.parm("ry").setFromParm(n_ctrl_ry)

@@ -40,6 +40,7 @@ class CityBuilder(QtWidgets.QMainWindow, Ui_MainWindow):
         # variable
         self.__grid_path = ''
         self.__osm_path = ''
+        self.__img_source_path = ''
         self.__save_path = 'D:/git_workspace/usd_IO/build_data'
         self.__form = {'hip': '', 'tex': '', 'mov': '', 'usd': ''}
         self.__save_path_lst = list()
@@ -181,7 +182,7 @@ class CityBuilder(QtWidgets.QMainWindow, Ui_MainWindow):
             print("grayscale grid 기반 city build를 시작합니다 ... ")
             self.textEdit__log.setText("create city in HOUDINI")
             self.build_grayscale.set_hipfile()
-            self.build_grayscale.create_city()
+            self.build_grayscale.create_city(self.__img_source_path, self.__form['hip'])
 
             self.textEdit__log.setText("hip 파일 저장")
             self.build_grayscale.cityname = self.__cityname
@@ -251,12 +252,14 @@ class CityBuilder(QtWidgets.QMainWindow, Ui_MainWindow):
             return
 
         if lineedit_type == 'grid_path':
+            self.__img_source_path = files[0]
             self.lineEdit__grid.setText(files[0])
             self.lineEdit__osm.setEnabled(False)
             self.toolButton__osm.setEnabled(False)
             self.__task_type = "grid_path"
 
         if lineedit_type == 'osm_path':
+            self.__img_source_path = files[0]
             self.lineEdit__osm.setText(files[0])
             self.lineEdit__grid.setEnabled(False)
             self.toolButton__grid.setEnabled(False)
