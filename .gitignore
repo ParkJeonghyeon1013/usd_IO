@@ -28,6 +28,8 @@ D:/git_workspace/usd_IO/build_data/grid_path_t1808/render/*
 .idea/**/uiDesigner.xml
 .idea/**/dbnavigator.xml
 
+*.mantra_checkpoint
+
 # Gradle
 .idea/**/gradle.xml
 .idea/**/libraries
